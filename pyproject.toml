@@ -1,0 +1,18 @@
+[project]
+name = "memory-mcp"
+version = "0.1.0"
+description = "A local memory layer for MCP using ChromaDB and Ollama"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]",
+    "chromadb",
+    "sentence_transformers"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/memory_mcp"]
