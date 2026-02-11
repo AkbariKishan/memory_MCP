@@ -88,12 +88,3 @@ class MemoryStore:
         ids = self.collection.get()['ids']
         if ids:
             self.collection.delete(ids=ids)
-
-    def get_all_memories(self) -> List[str]:
-         # Rough way to get all for summarization logic, though vector stores aren't optimized for "get all"
-         # For simplicity, let's just peek a large number if needed, or rely on search
-         count = self.collection.count()
-         if count == 0:
-             return []
-         result = self.collection.get(limit=count)
-         return result["documents"]

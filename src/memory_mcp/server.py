@@ -23,37 +23,19 @@ mcp = FastMCP("memory-server")
 # Use default path (handled in MemoryStore class)
 memory_store = MemoryStore()
 
-# Persistence for the summary
-SUMMARY_PATH = os.path.join(os.path.expanduser("~"), ".memory_mcp", "summary.txt")
-
-def load_summary() -> str:
-    if os.path.exists(SUMMARY_PATH):
-        try:
-            with open(SUMMARY_PATH, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception:
-            return "No context summary available."
-    return "No context summary available."
-
-def save_summary(summary: str):
-    os.makedirs(os.path.dirname(SUMMARY_PATH), exist_ok=True)
-    with open(SUMMARY_PATH, "w", encoding="utf-8") as f:
-        f.write(summary)
-
 @mcp.resource("memory://context")
 def get_context() -> str:
     """
-    Get the current condensed context summary and fact sheet.
-    The LLM can read this to understand the history and current state of the user.
+    Get the current structured fact sheet context.
+    The LLM can read this to understand the current state and preferences of the user.
     """
-    summary = load_summary()
     facts = memory_store.get_fact_sheet()
     
     fact_str = "No structured facts stored yet."
     if facts:
         fact_str = "\n".join([f"- {topic}: {content}" for topic, content in facts.items()])
     
-    return f"--- LONG-TERM SUMMARY ---\n{summary}\n\n--- STRUCTURED FACT SHEET ---\n{fact_str}"
+    return f"--- STRUCTURED FACT SHEET ---\n{fact_str}"
 
 @mcp.resource("memory://fact-sheet")
 def get_fact_sheet_resource() -> str:
