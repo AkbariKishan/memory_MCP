@@ -22,9 +22,11 @@ wheels/
 
 # Virtual environments
 venv/
-.venv/
-env/
-.env/
+.venv
+env
+.env
+.env.*
+node_modulesnv/
 
 # Databases
 .memory_mcp/

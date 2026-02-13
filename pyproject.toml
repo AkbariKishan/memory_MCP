@@ -9,7 +9,9 @@ dependencies = [
     "chromadb",
     "sentence_transformers",
     "pyyaml",
-    "requests"
+    "requests",
+    "google-generativeai",
+    "python-dotenv"
 ]
 
 [build-system]

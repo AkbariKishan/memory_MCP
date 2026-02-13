@@ -1,7 +1,9 @@
 # Advanced Memory Agent Configuration
 
 monitor:
-  model: "llama3.2:3b"
+  # Using Google Gemini for classification
+  provider: "google" # "google" or "ollama"
+  model: "gemini-flash-latest"
   enabled: true
   confidence_threshold: 0.6
   categories:
@@ -11,7 +13,9 @@ monitor:
     - chitchat
     
 extraction:
-  model: "llama3.1:8b"
+  # Using Google Gemini for fact extraction
+  provider: "google" # "google" or "ollama"
+  model: "gemini-flash-latest"
   enabled: true
   confidence_threshold: 0.7
   
@@ -22,6 +26,11 @@ grounding:
   include_semantic_memories: true
   relevance_threshold: 1
 
+google:
+  # Get your API key from https://aistudio.google.com
+  # Recommneded to use .env file instead: GOOGLE_API_KEY=your_key
+  api_key: "YOUR_GOOGLE_API_KEY"
+  
 ollama:
   url: "http://localhost:11434"
   timeout: 60

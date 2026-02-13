@@ -1,11 +1,13 @@
-"""
-Monitor Agent - Classifies message importance in real-time
-Uses Llama 3.2 3B for fast, lightweight classification
-"""
 import requests
 import json
-from typing import Dict, Optional
 import logging
+import os
+from typing import Dict, Optional
+import google.generativeai as genai
+try:
+    from src.memory_mcp.config import config
+except ImportError:
+    from config import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,10 +19,20 @@ class MonitorAgent:
     Decides whether a message contains important information worth extracting.
     """
     
-    def __init__(self, model: str = "llama3.2:3b", ollama_url: str = "http://localhost:11434"):
-        self.model = model
-        self.ollama_url = ollama_url
-        self.api_endpoint = f"{ollama_url}/api/generate"
+    def __init__(self, provider: str = None, model: str = None):
+        self.provider = provider or config.get("monitor.provider", "ollama")
+        self.model_name = model or config.get("monitor.model", "llama3.2:3b")
+        self.ollama_url = config.get("ollama.url", "http://localhost:11434")
+        
+        if self.provider == "google":
+            api_key = config.google_api_key
+            if not api_key or api_key == "YOUR_GOOGLE_API_KEY":
+                logger.error("Google API Key not found in config or environment")
+                # Fallback to Ollama if misconfigured? 
+                # Better to warn and proceed with whatever we can.
+            else:
+                genai.configure(api_key=api_key)
+                self.google_model = genai.GenerativeModel(self.model_name)
         
     def _build_classification_prompt(self, message: str, context: Optional[list] = None) -> str:
         """Build the prompt for message classification"""
@@ -46,58 +58,69 @@ Return ONLY valid JSON (no extra text):"""
     async def classify(self, message: str, context: Optional[list] = None) -> Dict:
         """
         Classify a message as important or not.
-        
-        Args:
-            message: The message to classify
-            context: Optional conversation context (list of previous messages)
-            
-        Returns:
-            Dict with keys: important (bool), category (str), confidence (float)
         """
+        if self.provider == "google":
+            return await self._classify_google(message, context)
+        else:
+            return await self._classify_ollama(message, context)
+
+    async def _classify_google(self, message: str, context: Optional[list] = None) -> Dict:
+        """Classify using Google Gemini"""
         try:
             prompt = self._build_classification_prompt(message, context)
+            logger.info(f"Classifying message via Gemini: {message[:50]}...")
+            
+            response = self.google_model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.1,
+                    candidate_count=1,
+                    response_mime_type="application/json"
+                )
+            )
+            
+            if response.text:
+                classification = json.loads(response.text)
+                logger.info(f"Gemini Classification: {classification}")
+                return classification
+            return self._default_classification()
+        except Exception as e:
+            logger.error(f"Gemini classification error: {e}")
+            return self._default_classification()
+
+    async def _classify_ollama(self, message: str, context: Optional[list] = None) -> Dict:
+        """Classify using Ollama"""
+        try:
+            prompt = self._build_classification_prompt(message, context)
+            api_endpoint = f"{self.ollama_url}/api/generate"
             
             payload = {
-                "model": self.model,
+                "model": self.model_name,
                 "prompt": prompt,
                 "stream": False,
-                "options": {
-                    "temperature": 0.1,  # Low temperature for consistent classification
-                    "num_predict": 100   # Short response expected
-                }
+                "options": {"temperature": 0.1, "num_predict": 100}
             }
             
-            logger.info(f"Classifying message: {message[:50]}...")
-            response = requests.post(self.api_endpoint, json=payload, timeout=30)
+            logger.info(f"Classifying message via Ollama: {message[:50]}...")
+            response = requests.post(api_endpoint, json=payload, timeout=30)
             
             if response.status_code == 200:
                 result = response.json()
                 response_text = result.get('response', '').strip()
-                
-                # Parse JSON response
-                try:
-                    # Extract JSON from response (in case there's extra text)
-                    json_start = response_text.find('{')
-                    json_end = response_text.rfind('}') + 1
-                    if json_start >= 0 and json_end > json_start:
-                        json_str = response_text[json_start:json_end]
-                        classification = json.loads(json_str)
-                        
-                        logger.info(f"Classification: {classification}")
-                        return classification
-                    else:
-                        logger.warning(f"No JSON found in response: {response_text}")
-                        return self._default_classification()
-                        
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON: {e}. Response: {response_text}")
-                    return self._default_classification()
-            else:
-                logger.error(f"Ollama API error: {response.status_code}")
-                return self._default_classification()
-                
+                return self._parse_json_safe(response_text)
+            return self._default_classification()
         except Exception as e:
-            logger.error(f"Classification error: {e}")
+            logger.error(f"Ollama classification error: {e}")
+            return self._default_classification()
+
+    def _parse_json_safe(self, text: str) -> Dict:
+        try:
+            json_start = text.find('{')
+            json_end = text.rfind('}') + 1
+            if json_start >= 0 and json_end > json_start:
+                return json.loads(text[json_start:json_end])
+            return self._default_classification()
+        except Exception:
             return self._default_classification()
     
     def _default_classification(self) -> Dict:
@@ -109,63 +132,19 @@ Return ONLY valid JSON (no extra text):"""
         }
     
     def should_extract(self, classification: Dict, threshold: float = 0.6) -> bool:
-        """
-        Determine if a message should be sent to the Extraction Agent.
-        
-        Args:
-            classification: The classification dict from classify()
-            threshold: Minimum confidence threshold (default 0.6)
-            
-        Returns:
-            True if message should be extracted
-        """
+        """Determine if a message should be sent to the Extraction Agent."""
         return (
             classification.get("important", False) and 
             classification.get("confidence", 0.0) >= threshold
         )
 
 
-# Synchronous wrapper for non-async contexts
 class MonitorAgentSync(MonitorAgent):
     """Synchronous version of MonitorAgent"""
     
     def classify(self, message: str, context: Optional[list] = None) -> Dict:
-        """Synchronous classify method"""
-        try:
-            prompt = self._build_classification_prompt(message, context)
-            
-            payload = {
-                "model": self.model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.1,
-                    "num_predict": 100
-                }
-            }
-            
-            logger.info(f"Classifying message: {message[:50]}...")
-            response = requests.post(self.api_endpoint, json=payload, timeout=30)
-            
-            if response.status_code == 200:
-                result = response.json()
-                response_text = result.get('response', '').strip()
-                
-                try:
-                    json_start = response_text.find('{')
-                    json_end = response_text.rfind('}') + 1
-                    if json_start >= 0 and json_end > json_start:
-                        json_str = response_text[json_start:json_end]
-                        classification = json.loads(json_str)
-                        logger.info(f"Classification: {classification}")
-                        return classification
-                    else:
-                        return self._default_classification()
-                except json.JSONDecodeError:
-                    return self._default_classification()
-            else:
-                return self._default_classification()
-                
-        except Exception as e:
-            logger.error(f"Classification error: {e}")
-            return self._default_classification()
+        # Simple blocking wrapper
+        import asyncio
+        import nest_asyncio
+        nest_asyncio.apply()
+        return asyncio.run(super().classify(message, context))
