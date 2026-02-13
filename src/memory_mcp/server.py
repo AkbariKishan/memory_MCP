@@ -1,158 +1,157 @@
 from mcp.server.fastmcp import FastMCP, Context
 from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 import json
 import logging
 import asyncio
-
-# Import our custom classes (assuming relative import works with PYTHONPATH setup or installed pkg)
-# For simplicity, let's assume we run this from project root
-try:
-    from src.memory_store import MemoryStore
-    from src.agents.grounder import GroundingAgent
-except ImportError:
-    # Try local import if running directly
-    from memory_store import MemoryStore
-    from agents.grounder import GroundingAgent
-
-
 import os
+import time
+
+# Import our custom classes
+try:
+    from src.memory_mcp.memory_store import MemoryStore
+    from src.memory_mcp.agents.grounder import GroundingAgent
+    from src.memory_mcp.agents.monitor import MonitorAgent
+    from src.memory_mcp.agents.extractor import ExtractionAgent
+    from src.memory_mcp.agents.reflector import ReflectorAgent
+    from src.memory_mcp.config import config
+except ImportError:
+    from memory_mcp.memory_store import MemoryStore
+    from memory_mcp.agents.grounder import GroundingAgent
+    from memory_mcp.agents.monitor import MonitorAgent
+    from memory_mcp.agents.extractor import ExtractionAgent
+    from memory_mcp.agents.reflector import ReflectorAgent
+    from memory_mcp.config import config
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Initialize Server
 mcp = FastMCP("memory-server")
 
-# Initialize Storage
-# Use default path (handled in MemoryStore class)
+# Initialize Storage & Agents
 memory_store = MemoryStore()
-
-# Initialize Grounding Agent
 grounding_agent = GroundingAgent(memory_store)
+monitor_agent = MonitorAgent()
+extraction_agent = ExtractionAgent()
+reflector_agent = ReflectorAgent()
+
+# Automation State
+MESSAGE_COUNTER = 0
+
+async def run_maintenance_loop():
+    """Background loop to periodically run reflection if enabled."""
+    # Wait for server to stabilize
+    await asyncio.sleep(5)
+    
+    interval = config.get("reflector.interval_seconds", 1800)
+    enabled = config.get("reflector.enable_background_loop", False)
+    
+    if not enabled:
+        logger.info("Background maintenance loop is disabled via config.")
+        return
+
+    logger.info(f"Background maintenance loop started. Interval: {interval}s")
+    while True:
+        try:
+            logger.info("Starting scheduled background reflection cycle...")
+            await reflector_agent.reflect(memory_store)
+            logger.info(f"Background reflection complete. Sleeping for {interval}s")
+        except Exception as e:
+            logger.error(f"Error in maintenance loop: {e}")
+        
+        await asyncio.sleep(interval)
+
+@mcp.on_startup()
+async def startup():
+    """Start background tasks on server startup."""
+    asyncio.create_task(run_maintenance_loop())
+    logger.info("Memory MCP Server startup sequence initialized.")
 
 @mcp.resource("memory://context")
 def get_context() -> str:
-    """
-    Get the current structured fact sheet context.
-    The LLM can read this to understand the current state and preferences of the user.
-    """
-    facts = memory_store.get_fact_sheet()
-    
-    fact_str = "No structured facts stored yet."
-    if facts:
-        fact_str = "\n".join([f"- {topic}: {content}" for topic, content in facts.items()])
-    
-    return f"--- STRUCTURED FACT SHEET ---\n{fact_str}"
-
-@mcp.resource("memory://fact-sheet")
-def get_fact_sheet_resource() -> str:
-    """
-    Get the structured Fact Sheet which contains categorized information.
-    """
+    """Get summarized semantic memory context."""
     facts = memory_store.get_fact_sheet()
     if not facts:
-        return "Fact sheet is currently empty."
-    return "\n".join([f"- {topic}: {content}" for topic, content in facts.items()])
+        return "No structured facts stored yet."
+    fact_str = "\n".join([f"- {topic}: {data.get('content') if isinstance(data, dict) else data}" for topic, data in facts.items()])
+    return f"--- SEMANTIC MEMORY ---\n{fact_str}"
 
 @mcp.tool()
-def store_memory(content: str, metadata: str = "{}") -> str:
-    """
-    Store a new memory in the vector database.
-    
-    Args:
-        content: The text content of the memory to store.
-        metadata: Optional JSON string of metadata (e.g., {"source": "chat", "timestamp": "..."}).
-    """
-    try:
-        meta_dict = json.loads(metadata)
-    except json.JSONDecodeError:
-        meta_dict = {"raw_metadata": metadata}
-        
-    memory_id = memory_store.add_memory(content, meta_dict)
-    return f"Memory stored successfully with ID: {memory_id}"
+def store_memory(content: str, importance: float = 0.5) -> str:
+    """Store raw episodic memory with importance tracking."""
+    meta = {"importance_score": importance, "source": "manual"}
+    memory_id = memory_store.add_memory(content, meta)
+    return f"Episodic memory stored | ID: {memory_id} | Importance: {importance}"
 
 @mcp.tool()
-def retrieve_memory(query: str, limit: int = 5) -> str:
-    """
-    Retrieve relevant memories based on a semantic query.
-    
-    Args:
-        query: The search query to find relevant memories.
-        limit: The maximum number of memories to return (default 5).
-    """
-    results = memory_store.search_memory(query, limit)
-    
-    if not results:
-        return "No relevant memories found."
-        
-    formatted_results = []
-    for doc in results:
-        # Include ID for deletion purposes
-        formatted_results.append(f"[{doc['id']}] {doc['content']} (Target: {doc['metadata']})")
-        
-    return "\n".join(formatted_results)
+def update_fact(topic: str, content: str, importance: float = 0.8) -> str:
+    """Manually update the semantic fact sheet."""
+    memory_store.update_fact_with_metadata(topic, content, importance=importance)
+    return f"Fact Sheet updated: {topic}"
 
 @mcp.tool()
-def delete_memory(memory_id: str) -> str:
+async def process_message(message: str, context: Optional[list] = None) -> str:
     """
-    Delete a specific memory by its ID.
+    Autonomous pipeline: Monitor -> Extract -> Store.
+    Automatically handles importance scoring and conflict resolution.
+    """
+    global MESSAGE_COUNTER
     
-    Args:
-        memory_id: The UUID of the memory to delete.
-    """
-    try:
-        memory_store.delete_memory(memory_id)
-        return f"Memory with ID {memory_id} deleted successfully."
-    except Exception as e:
-        return f"Failed to delete memory: {str(e)}"
+    # 1. Classify
+    classification = await monitor_agent.classify(message, context)
+    if not classification.get("important"):
+        return "Message classified as chitchat. No action taken."
+    
+    # 2. Extract
+    extraction = extraction_agent.extract_facts(message, classification.get("category", "fact"), context)
+    topic = extraction.get("topic")
+    content = extraction.get("content")
+    
+    # 3. Conflict Resolution & Store
+    existing = memory_store.get_fact(topic)
+    if existing:
+        logger.info(f"Conflict detected for topic: {topic}. Resolving...")
+        content = await extraction_agent.resolve_conflict(content, existing.get("content"))
+    
+    memory_store.update_fact_with_metadata(
+        topic=topic,
+        content=content,
+        entities=extraction.get("entities"),
+        category=extraction.get("category"),
+        importance=classification.get("importance_score", 0.5)
+    )
+    
+    # 4. Turn-based automation check
+    MESSAGE_COUNTER += 1
+    maintenance_status = ""
+    
+    # Get threshold from config
+    threshold = config.get("reflector.message_threshold", 20)
+    
+    if MESSAGE_COUNTER >= threshold:
+        logger.info(f"Threshold reached ({MESSAGE_COUNTER}/{threshold}). Triggering turn-based reflection...")
+        asyncio.create_task(reflector_agent.reflect(memory_store))
+        MESSAGE_COUNTER = 0
+        maintenance_status = f" | [Self-Maintenance Triggered (Threshold: {threshold})]"
+    
+    return f"Knowledge integrated: {topic} | Resolved: {bool(existing)}{maintenance_status}"
 
 @mcp.tool()
-def delete_all_memories() -> str:
-    """
-    Delete ALL memories. Use with caution.
-    """
-    try:
-        memory_store.delete_all()
-        return "All memories have been deleted."
-    except Exception as e:
-        return f"Failed to delete all memories: {str(e)}"
-
-@mcp.tool()
-def update_fact(topic: str, content: str) -> str:
-    """
-    Update the structured Fact Sheet with new or revised information.
-    Use this to store static knowledge about the user, project, or environment.
-    
-    Args:
-        topic: The category or subject of the fact (e.g., 'User Preferences', 'Tech Stack').
-        content: The detailed information to store for this topic.
-    """
-    memory_store.update_fact(topic, content)
-    return f"Fact sheet updated for topic: {topic}"
+async def reflect_and_consolidate() -> str:
+    """Run cognitive reflection cycle manually (merge episodic -> semantic, prune old data)."""
+    await reflector_agent.reflect(memory_store)
+    return "Memory reflection complete. Facts consolidated and database pruned."
 
 @mcp.tool()
 def ground_query(query: str, max_facts: int = 5) -> str:
-    """
-    Enrich a query with relevant context from the memory system.
-    Use this before sending a query to the chatbot to inject relevant facts.
-    
-    Args:
-        query: The user's query
-        max_facts: Maximum number of facts to include (default 5)
-    """
-    try:
-        enriched_query = grounding_agent.enrich_query(query, max_facts=max_facts)
-        return enriched_query
-    except Exception as e:
-        return f"Error grounding query: {str(e)}. Using original query: {query}"
+    """Enrich query with hierarchical context retrieval."""
+    return grounding_agent.enrich_query(query, max_facts=max_facts)
 
 @mcp.tool()
 def get_fact_sheet() -> str:
-    """
-    Retrieve the entire structured Fact Sheet.
-    """
-    facts = memory_store.get_fact_sheet()
-    if not facts:
-        return "Fact sheet is currently empty."
-    return json.dumps(facts, indent=2)
+    """Retrieve full semantic fact sheet in JSON format."""
+    return json.dumps(memory_store.get_fact_sheet(), indent=2)
 
 if __name__ == "__main__":
     mcp.run()

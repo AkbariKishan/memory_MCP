@@ -4,6 +4,7 @@ import logging
 import os
 from typing import Dict, Optional, List
 import google.generativeai as genai
+
 try:
     from src.memory_mcp.config import config
 except ImportError:
@@ -67,11 +68,8 @@ Return ONLY valid JSON:
 }}
 
 Examples:
-Message: "I prefer dark mode in all my applications"
-→ {{"topic": "UI Preferences", "content": "Prefers dark mode in all applications", "entities": ["dark mode"], "category": "preference"}}
-
-Message: "This project uses FastAPI and PostgreSQL"
-→ {{"topic": "Tech Stack", "content": "Project uses FastAPI and PostgreSQL", "entities": ["FastAPI", "PostgreSQL"], "category": "project"}}
+- "I prefer dark mode" → {{"topic": "UI Preferences", "content": "Prefers dark mode", "entities": ["dark mode"], "category": "preference"}}
+- "Project uses FastAPI" → {{"topic": "Tech Stack", "content": "Project uses FastAPI", "entities": ["FastAPI"], "category": "project"}}
 
 JSON response:"""
         
@@ -119,7 +117,8 @@ JSON response:"""
                 "model": self.model_name,
                 "prompt": prompt,
                 "stream": False,
-                "options": {"temperature": 0.2, "num_predict": 200}
+                "options": {"temperature": 0.2, "num_predict": 200},
+                "format": "json"
             }
             
             logger.info(f"Extracting facts via Ollama: {message[:50]}...")
@@ -133,6 +132,32 @@ JSON response:"""
         except Exception as e:
             logger.error(f"Ollama extraction error: {e}")
             return self._default_extraction(message, category)
+
+    async def resolve_conflict(self, new_fact_content: str, existing_fact_content: str) -> str:
+        """Use LLM to resolve a conflict between new info and existing knowledge."""
+        prompt = f"""CONFLICT DETECTED in User Memory.
+
+Existing Knowledge: "{existing_fact_content}"
+New Information: "{new_fact_content}"
+
+Your task:
+1. Determine if the new information updates, contradicts, or complements the existing fact.
+2. Provide a single unified fact that reconciles both.
+3. If they are completely different, favor the newer information but mention the change.
+
+Unified Fact:"""
+        
+        try:
+            if self.provider == "google":
+                response = self.google_model.generate_content(prompt)
+                return response.text.strip()
+            else:
+                payload = {"model": self.model_name, "prompt": prompt, "stream": False}
+                res = requests.post(f"{self.ollama_url}/api/generate", json=payload, timeout=30)
+                return res.json().get('response', new_fact_content).strip()
+        except Exception as e:
+            logger.error(f"Resolution error: {e}")
+            return new_fact_content
 
     def _parse_json_safe(self, text: str, message: str, category: str) -> Dict:
         try:
@@ -148,34 +173,13 @@ JSON response:"""
     def _validate_extraction(self, extraction: Dict, message: str, category: str) -> Dict:
         required_fields = ["topic", "content", "entities", "category"]
         if all(field in extraction for field in required_fields):
-            logger.info(f"Extracted: {extraction['topic']} - {extraction['content']}")
             return extraction
         return self._default_extraction(message, category)
     
     def _default_extraction(self, message: str, category: str) -> Dict:
-        """Return a safe default extraction when errors occur"""
         return {
             "topic": "General",
             "content": message,
             "entities": [],
             "category": category
         }
-    
-    def merge_with_existing(self, new_fact: Dict, existing_facts: Dict) -> Dict:
-        """Merge a new fact with existing facts."""
-        topic = new_fact.get("topic", "General")
-        content = new_fact.get("content", "")
-        
-        if topic in existing_facts:
-            existing_data = existing_facts[topic]
-            if isinstance(existing_data, dict):
-                existing_content = existing_data.get("content", "")
-                if content not in existing_content:
-                    existing_data["content"] = f"{existing_content}; {content}"
-            else:
-                if content not in existing_data:
-                    existing_facts[topic] = f"{existing_data}; {content}"
-        else:
-            existing_facts[topic] = content
-        
-        return existing_facts

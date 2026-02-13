@@ -34,3 +34,9 @@ google:
 ollama:
   url: "http://localhost:11434"
   timeout: 60
+
+# Reflector Agent Configuration
+reflector:
+  interval_seconds: 1800  # How often to run background reflection (default: 30 minutes)
+  message_threshold: 20   # Run reflection every N important messages
+  enable_background_loop: false  # Whether to run the background timer (default: false)

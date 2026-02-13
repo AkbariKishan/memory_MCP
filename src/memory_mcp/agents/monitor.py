@@ -28,26 +28,27 @@ class MonitorAgent:
             api_key = config.google_api_key
             if not api_key or api_key == "YOUR_GOOGLE_API_KEY":
                 logger.error("Google API Key not found in config or environment")
-                # Fallback to Ollama if misconfigured? 
-                # Better to warn and proceed with whatever we can.
             else:
                 genai.configure(api_key=api_key)
                 self.google_model = genai.GenerativeModel(self.model_name)
         
     def _build_classification_prompt(self, message: str, context: Optional[list] = None) -> str:
-        """Build the prompt for message classification"""
-        prompt = f"""Classify this message for a memory system.
+        """Build the prompt for message classification with importance scoring"""
+        prompt = f"""Classify this message for a memory system and assign an importance score.
 
 RULES:
-1. If the message contains preferences, facts, project details, or decisions → important: true
+1. If the message contains preferences, permanent facts, project details, or decisions → important: true
 2. If the message is just greetings, thanks, or chitchat → important: false
+3. importance_score (0.0 to 1.0):
+   - 0.9-1.0: Permanent core user preferences (e.g., "I am vegan", "Call me Alex")
+   - 0.7-0.8: Long-term technical facts or bio info (e.g., "I use React", "I live in London")
+   - 0.4-0.6: Transitory project details or current tasks (e.g., "The bug is in line 4", "Deadline is Friday")
+   - 0.0-0.3: Low value chitchat or temporary context.
 
 Examples:
-- "I prefer dark mode" → {{"important": true, "category": "preference", "confidence": 0.95}}
-- "This uses FastAPI" → {{"important": true, "category": "project", "confidence": 0.9}}
-- "My name is Sarah" → {{"important": true, "category": "fact", "confidence": 1.0}}
-- "Hello!" → {{"important": false, "category": "chitchat", "confidence": 1.0}}
-- "Thanks" → {{"important": false, "category": "chitchat", "confidence": 1.0}}
+- "I prefer dark mode" → {{"important": true, "category": "preference", "confidence": 0.95, "importance_score": 0.9}}
+- "This uses FastAPI" → {{"important": true, "category": "project", "confidence": 0.9, "importance_score": 0.7}}
+- "Hello!" → {{"important": false, "category": "chitchat", "confidence": 1.0, "importance_score": 0.1}}
 
 Message: "{message}"
 
@@ -128,7 +129,8 @@ Return ONLY valid JSON (no extra text):"""
         return {
             "important": False,
             "category": "chitchat",
-            "confidence": 0.0
+            "confidence": 0.0,
+            "importance_score": 0.0
         }
     
     def should_extract(self, classification: Dict, threshold: float = 0.6) -> bool:

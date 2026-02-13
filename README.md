@@ -1,49 +1,20 @@
-# Memory MCP Server
-# Memory MCP - Advanced Memory Agent
+# Memory MCP - Advanced Cognitive Memory Agent 🧠✨
 
-A **Model Context Protocol (MCP) server** that provides long-term memory capabilities for AI chatbots using an autonomous three-agent architecture.
-
-## Features
-
-### 🤖 Three-Agent Architecture
-- **Monitor Agent** (Llama 3.2 3B): Real-time message classification
-- **Extraction Agent** (Llama 3.1 8B): Structured fact extraction
-- **Grounding Agent**: Context injection before responses
-
-### 💾 Dual Storage System
-- **Structured Fact Sheet**: Human-readable JSON for static knowledge
-- **Vector Database**: ChromaDB for semantic search of conversations
-
-### 🔒 100% Local & Private
-- All processing happens on your machine
-- No external API calls required
-- Data stored in `~/.memory_mcp/`
-
-## How It Works
-
-```
-User Message → Monitor Agent → Extraction Agent → MemoryStore
-                    ↓                                    ↓
-              (Filter chitchat)              (Store with metadata)
-                                                         ↓
-User Query → Grounding Agent → Retrieve Facts → Enrich Context → Chatbot
-```
-
-# Memory MCP - Advanced Autonomous Memory Agent 🧠
-
-Memory MCP is a professional-grade **Model Context Protocol (MCP) server** that provides long-term, autonomous memory for AI chatbots. Unlike simple memory tools, it uses a sophisticated **three-agent architecture** to monitor conversations, extract structured knowledge, and ground future responses in real-time.
+Memory MCP is a professional-grade **Model Context Protocol (MCP) server** that provides long-term, autonomous cognitive memory for AI chatbots. Unlike simple memory tools, it uses a sophisticated **four-agent architecture** to monitor, extract, reconcile, and consolidate knowledge in real-time.
 
 ---
 
 ## 🚀 Key Features
 
-- **🤖 Autonomous Three-Agent System**:
-    - **Monitor Agent**: Classifies every message as "important" or "chitchat" to keep your memory clean.
+- **🤖 Autonomous Four-Agent System**:
+    - **Monitor Agent**: Classifies messages and assigns **Importance Scores** (0.0 to 1.0) to filter chitchat from core knowledge.
     - **Extraction Agent**: Transforms raw text into structured JSON facts with entities and metadata.
-    - **Grounding Agent**: Automatically injects relevant context into your queries before the chatbot answers.
+    - **Reflector Agent**: Performs "Memory Sleep" cycles to consolidate fragmented memories and prune outdated info.
+    - **Grounding Agent**: Automatically injects relevant context into your queries using hierarchical retrieval.
+- **⚖️ Automated Conflict Resolution**: Automatically detects when new info contradicts existing knowledge and uses an LLM to reconcile the two into a single, accurate fact.
 - **⚡ Dual-Storage Engine**:
-    - **Structured Fact Sheet**: A human-readable JSON file (`fact_sheet.json`) for static knowledge (preferences, tech stacks, bio).
-    - **Vector Search**: Semantic search via ChromaDB for digging through historical conversation context.
+    - **Semantic Memory (Fact Sheet)**: High-importance, stable facts (preferences, bio, tech stacks).
+    - **Episodic Memory (Vector DB)**: Time-indexed experiential logs with temporal metadata.
 - **🌍 Hybrid Model Support**:
     - **Google Gemini (Recommended)**: Ultra-fast, high-accuracy extraction using Gemini 1.5/2.0 Flash (Free Tier).
     - **Local Ollama**: 100% private, offline inference using Llama 3.2/3.1.
@@ -53,154 +24,105 @@ Memory MCP is a professional-grade **Model Context Protocol (MCP) server** that 
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture: The Cognitive Pipeline
+
+The system operates as an intelligent "Cognitive OS" layer between you and your LLM.
 
 ```mermaid
-graph TD
-    A[User Message] --> B[Monitor Agent]
-    B -- "Important Content" --> C[Extraction Agent]
-    B -- "Chitchat" --> D[Ignore]
-    C --> E[MemoryStore]
-    E --> F[(fact_sheet.json)]
-    E --> G[(ChromaDB Vector DB)]
+flowchart TD
+    A["User Message"] --> B["Monitor Agent"]
+    B -- "Important" --> C["Extraction Agent"]
+    B -- "Chitchat" --> D["Ignore"]
     
-    H[User Query] --> I[Grounding Agent]
-    I --> J{Search Memory}
-    J -- "Retrieve Facts" --> F
-    J -- "Semantic Search" --> G
-    I -- "Enrich Context" --> K[Enriched Query]
-    K --> L[Chatbot LLM]
+    C --> E["Conflict Detection"]
+    E -- "Conflict Found" --> F["Conflict Resolver"]
+    E -- "No Conflict" --> G["MemoryStore"]
+    F --> G
+    
+    G --> H["Semantic Fact Sheet"]
+    G --> I["Episodic Vector DB"]
+    
+    J["Reflection Phase"] --> K["Reflector Agent"]
+    K -- "Consolidate" --> H
+    K -- "Prune" --> I
+    
+    L["User Query"] --> M["Grounding Agent"]
+    M --> H
+    M --> I
+    M -- "Enriched Context" --> N["Final LLM Prompt"]
 ```
-
----
-
-## 🛠️ Prerequisites
-
-- **Python 3.10+**
-- **Google AI Studio API Key** (Get it free at [aistudio.google.com](https://aistudio.google.com))
-- (Optional) **Ollama** for local execution.
-
----
-
-## 📥 Installation
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/yourusername/memory_MCP.git
-cd memory_MCP
-
-# 2. Install dependencies
-pip install -e .
-
-# 3. Dedicated .env setup
-cp .env.example .env
-# Open .env and add your GOOGLE_API_KEY
-```
-
----
-
-## ⚙️ Configuration
-
-The system is highly configurable via `config.yaml`. You can mix and match providers (e.g., use Gemini for monitoring and Ollama for storage).
-
-### Google Gemini Setup (Default)
-```yaml
-monitor:
-  provider: "google"
-  model: "gemini-flash-latest"
-
-google:
-  api_key: "YOUR_KEY" # Or set GOOGLE_API_KEY in .env
-```
-
-### Local Ollama Setup
-```yaml
-monitor:
-  provider: "ollama"
-  model: "llama3.2:3b"
-```
-
----
-
-### Claude Desktop Setup
-
-Add this to your `claude_desktop_config.json`. **Note**: Since you have a `.env` file in the project directory, the `env` section here is optional as the server will automatically load your `.env` key.
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "python3",
-      "args": ["/Users/YOUR_USER/memory_MCP/src/memory_mcp/server.py"],
-      "cwd": "/Users/YOUR_USER/memory_MCP"
-    }
-  }
-}
-```
-
----
-
-## 🔒 Security Best Practices
-
-1. **Use `.env`**: Always prefer storing your `GOOGLE_API_KEY` in the `.env` file. It's excluded from Git via `.gitignore`.
-2. **Avoid Hardcoding**: Never paste your API key directly into `config.yaml` or `server.py`.
-3. **Environment Variables**: If you are using a CI/CD pipeline or a different MCP client, you can also set `GOOGLE_API_KEY` as a system environment variable.
 
 ---
 
 ## 🛠️ Available Tools
 
-### 1. `ground_query`
-The primary tool for context injection. Call this before asking the chatbot a question to ensure it "remembers" you.
-- **Input**: `query` (str)
-- **Action**: Searches Fact Sheet & Vector DB, returns enriched context.
-
-### 2. `store_memory`
-Manually store a specific piece of information in the semantic vector database.
-- **Input**: `content` (str)
-
-### 3. `update_fact`
-Manually update or override a topic in the structured fact sheet.
-- **Input**: `topic` (str), `content` (str)
-
-### 4. `get_fact_sheet`
-View the entire structured knowledge base currently stored in memory.
+| Tool | Type | Description |
+| :--- | :--- | :--- |
+| `process_message` | **Cognitive** | **Primary Tool.** Runs Monitor -> Extract -> Reconcile -> Store. |
+| `ground_query` | **Grounding** | Enriches a query with relevant context before the chatbot answers. |
+| `reflect_and_consolidate` | **Maintenance** | Merges similar memories into facts and cleans up old, low-value data. |
+| `update_fact` | **Manual** | Force-update a specific subject in the Semantic memory. |
+| `get_fact_sheet` | **Resource** | View the entire structured knowledge base. |
 
 ---
 
-## 🧠 How the Agents Work
+## 🧠 Deep Dive: How the Agents "Think"
 
-### 1. The Monitor Agent
-Every message you send is first analyzed by a lightweight agent (Gemini Flash or Llama 3b). It ignores "Hi", "Thanks", and small talk, focusing only on "Knowledge Delta" (new info).
+### 1. The Monitor Agent & Importance Scoring
+Every message is scored to determine its "Shelf Life":
+- **0.9-1.0 (Critical)**: Permanent User Preferences ("I am vegan", "Call me Alex").
+- **0.7-0.8 (Stable)**: Technical or Bio Facts ("I use React", "I live in NYC").
+- **0.4-0.6 (Transitory)**: Current project details ("The deadline is Friday").
+- **<0.3 (Ephemeral)**: Small talk or greetings (Discarded).
 
-### 2. The Extraction Agent
-Flagged messages are sent here. It extracts:
-- **Topic**: The high-level category.
-- **Content**: The core fact.
-- **Entities**: Key names, techs, or places.
-- **Category**: Classifies as "preference", "project", or "fact".
+### 2. The Extraction Agent & Conflict Resolution
+When new information arrives that contradicts existing knowledge, the **Conflict Resolver** is triggered. 
+*Example: If you previously said you use React, but now say "I've switched to Vue," the system will reconcile these into a single updated fact rather than creating duplicates.*
 
-### 3. The Grounding Agent
-When you ask a question like *"What should I use for my backend?"*, the Grounding Agent retrieves your previously stored backend preferences (e.g., *"Uses FastAPI and PostgreSQL"*) and injects them into the current prompt.
+### 3. Automated Maintenance (New!)
+The server is now fully autonomous and manages its own "Mind" via configurable triggers:
+- **Turn-based Trigger**: Automatically runs a reflection cycle after every **20 important messages** (Configurable).
+- **Background Loop**: Can periodically run maintenance (e.g., every 30 mins) while idle. **Disabled by default** to save resources.
+
+```yaml
+# config.yaml settings
+reflector:
+  message_threshold: 20   # Run reflection every 20 important messages
+  enable_background_loop: false  # Set to true to enable background timer
+  interval_seconds: 1800  # 30 minute interval
+```
 
 ---
 
-## 📊 Comparison: Why Memory MCP?
+## 📥 Installation & Setup
 
-| Feature | Memory MCP | Simple Vector DB | Mem0 (SaaS) |
-|---------|------------|------------------|-------------|
-| **Structure** | Fact Sheet + Vector | Vector Only | Knowledge Graph |
-| **Privacy** | 100% Local Files | Usually Local | Cloud-based |
-| **Logic** | Autonomous Agents | Manual Storage | Automatic |
-| **Cost** | Free (Local/Gemini) | Free | Subscription |
-| **Editing** | Direct JSON edit | Hard to manually edit | API only |
+```bash
+# 1. Clone & Install
+git clone https://github.com/yourusername/memory_MCP.git
+cd memory_MCP
+pip install -e .
+
+# 2. Key Setup
+cp .env.example .env
+# Add your GOOGLE_API_KEY to .env (No key needed for local Ollama)
+```
+
+### 💡 Tips for Pro Users
+To get the most out of your Cognitive Memory, try these prompts:
+- *"Remember that I prefer dark mode for all my projects."* (Direct store)
+- *"What did we decide about the API architecture yesterday?"* (Triggers grounding)
+- *"Reflect on our recent work and update my tech stack preferences."* (Manual maintenance)
+
+---
+
+## 🔒 Security Best Practices
+
+1. **Local Everything**: All your memories are stored in `~/.memory_mcp/`. No data ever leaves your machine unless you use a cloud LLM provider (Google Gemini).
+2. **Key Management**: Use the `.env` file to keep your API keys out of your source code.
+3. **Control**: You can manually edit `~/.memory_mcp/fact_sheet.json` if you ever need to "hard-reset" a specific fact.
 
 ---
 
 ## 📝 License
 
 MIT
-
-## 🤝 Contributing
-
-Contributions are welcome! Whether it's adding a new provider or improving the extraction prompts, feel free to open a PR.
