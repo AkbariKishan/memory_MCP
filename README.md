@@ -115,7 +115,20 @@ To get the most out of your Cognitive Memory, try these prompts:
 
 ---
 
-## 🔒 Security Best Practices
+## � Comparison: Memory MCP vs. Mem0
+
+| Feature | Memory MCP (Cognitive) | Mem0 (Standard) |
+| :--- | :--- | :--- |
+| **Logic Engine** | **Four-Agent System**: Monitors, extracts, reconciles, and reflects autonomously. | Uses a simpler extract-and-graph approach. |
+| **Maintenance** | **Self-Reflective**: Automated "Mind Cycles" consolidate and prune data without user input. | Pruning and consolidation are usually batch processes or manual. |
+| **Protocol** | **MCP Standard**: Plug-and-play with Claude Desktop and any MCP client. | Custom SDK/API integration required. |
+| **Privacy** | **100% Local First**: Data stays on your disk. Works with local Ollama. | Primarily cloud-based SaaS, though open-source options exist. |
+| **Conflict Resolution** | **Agentic Reconcile**: Uses LLM reasoning to merge contradictory info into "Unified Facts." | Can lead to duplicates or requires manual metadata logic. |
+| **Setup Cost** | **Free / Local**: Zero-cost with Gemini Flash or local Llama. | Tiered SaaS pricing for cloud features. |
+
+---
+
+## �🔒 Security Best Practices
 
 1. **Local Everything**: All your memories are stored in `~/.memory_mcp/`. No data ever leaves your machine unless you use a cloud LLM provider (Google Gemini).
 2. **Key Management**: Use the `.env` file to keep your API keys out of your source code.
