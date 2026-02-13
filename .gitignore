@@ -32,11 +32,14 @@ chroma_db/
 fact_sheet.json
 summary.txt
 
-# OS generated files
+# OS-specific
 .DS_Store
+Thumbs.db
+
+# Test directories
+.memory_mcp_test_*
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db

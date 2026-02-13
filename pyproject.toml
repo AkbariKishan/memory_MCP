@@ -7,7 +7,9 @@ requires-python = ">=3.10"
 dependencies = [
     "mcp[cli]",
     "chromadb",
-    "sentence_transformers"
+    "sentence_transformers",
+    "pyyaml",
+    "requests"
 ]
 
 [build-system]

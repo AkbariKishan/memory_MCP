@@ -47,9 +47,53 @@ class MemoryStore:
         with open(self.fact_sheet_path, "w", encoding="utf-8") as f:
             json.dump(self.fact_sheet, f, ensure_ascii=False, indent=2)
 
-    def update_fact(self, topic: str, content: str):
-        self.fact_sheet[topic] = content
+    def update_fact(self, topic: str, content: str, metadata: Optional[Dict] = None):
+        """Update a fact with optional metadata (entities, timestamps, etc.)"""
+        from datetime import datetime
+        
+        if metadata is None:
+            metadata = {}
+        
+        # Add timestamp
+        metadata["updated_at"] = datetime.now().isoformat()
+        
+        # Store as structured object if metadata provided
+        if metadata:
+            self.fact_sheet[topic] = {
+                "content": content,
+                "metadata": metadata
+            }
+        else:
+            # Backward compatibility: store as simple string
+            self.fact_sheet[topic] = content
+        
         self._save_fact_sheet()
+    
+    def update_fact_with_metadata(self, topic: str, content: str, entities: List[str] = None, category: str = None):
+        """Update a fact with full metadata from Extraction Agent"""
+        metadata = {
+            "entities": entities or [],
+            "category": category
+        }
+        self.update_fact(topic, content, metadata)
+    
+    def get_facts_by_entity(self, entity: str) -> List[Dict]:
+        """Retrieve all facts that mention a specific entity"""
+        matching_facts = []
+        
+        for topic, fact_data in self.fact_sheet.items():
+            # Handle both old (string) and new (dict) format
+            if isinstance(fact_data, dict):
+                entities = fact_data.get("metadata", {}).get("entities", [])
+                if entity.lower() in [e.lower() for e in entities]:
+                    matching_facts.append({
+                        "topic": topic,
+                        "content": fact_data.get("content", ""),
+                        "entities": entities,
+                        "category": fact_data.get("metadata", {}).get("category", "unknown")
+                    })
+        
+        return matching_facts
 
     def get_fact_sheet(self) -> Dict:
         return self.fact_sheet

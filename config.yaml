@@ -1,0 +1,27 @@
+# Advanced Memory Agent Configuration
+
+monitor:
+  model: "llama3.2:3b"
+  enabled: true
+  confidence_threshold: 0.6
+  categories:
+    - preference
+    - fact
+    - project
+    - chitchat
+    
+extraction:
+  model: "llama3.1:8b"
+  enabled: true
+  confidence_threshold: 0.7
+  
+grounding:
+  model: "use_main_llm"  # Reuses the chatbot's LLM
+  mode: "auto"  # auto | on_demand | disabled
+  max_facts: 5
+  include_semantic_memories: true
+  relevance_threshold: 1
+
+ollama:
+  url: "http://localhost:11434"
+  timeout: 60

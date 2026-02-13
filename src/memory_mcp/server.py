@@ -9,9 +9,11 @@ import asyncio
 # For simplicity, let's assume we run this from project root
 try:
     from src.memory_store import MemoryStore
+    from src.agents.grounder import GroundingAgent
 except ImportError:
     # Try local import if running directly
     from memory_store import MemoryStore
+    from agents.grounder import GroundingAgent
 
 
 import os
@@ -22,6 +24,9 @@ mcp = FastMCP("memory-server")
 # Initialize Storage
 # Use default path (handled in MemoryStore class)
 memory_store = MemoryStore()
+
+# Initialize Grounding Agent
+grounding_agent = GroundingAgent(memory_store)
 
 @mcp.resource("memory://context")
 def get_context() -> str:
@@ -122,6 +127,22 @@ def update_fact(topic: str, content: str) -> str:
     """
     memory_store.update_fact(topic, content)
     return f"Fact sheet updated for topic: {topic}"
+
+@mcp.tool()
+def ground_query(query: str, max_facts: int = 5) -> str:
+    """
+    Enrich a query with relevant context from the memory system.
+    Use this before sending a query to the chatbot to inject relevant facts.
+    
+    Args:
+        query: The user's query
+        max_facts: Maximum number of facts to include (default 5)
+    """
+    try:
+        enriched_query = grounding_agent.enrich_query(query, max_facts=max_facts)
+        return enriched_query
+    except Exception as e:
+        return f"Error grounding query: {str(e)}. Using original query: {query}"
 
 @mcp.tool()
 def get_fact_sheet() -> str:
