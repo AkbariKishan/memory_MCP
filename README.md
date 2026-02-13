@@ -94,6 +94,8 @@ reflector:
 
 ---
 
+---
+
 ## 📥 Installation & Setup
 
 ```bash
@@ -106,6 +108,76 @@ pip install -e .
 cp .env.example .env
 # Add your GOOGLE_API_KEY to .env (No key needed for local Ollama)
 ```
+
+---
+
+## 🔌 Connecting to MCP Clients
+
+### 1. Claude Desktop (Mac/Windows)
+Claude Desktop is the flagship client for MCP. It allows you to use your Cognitive Memory directly in your chats.
+
+**Config Location:**
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+**Configuration:**
+Add the following to your `mcpServers` object:
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "command": "python3",
+      "args": ["/Users/YOUR_USER/memory_MCP/src/memory_mcp/server.py"],
+      "env": {
+        "PYTHONPATH": "/Users/YOUR_USER/memory_MCP"
+      }
+    }
+  }
+}
+```
+> [!IMPORTANT]
+> Replace `/Users/YOUR_USER/memory_MCP` with the **absolute path** to your project directory.
+
+---
+
+### 2. VS Code (Roo Code / Cline)
+These extensions turn VS Code into a powerful AI IDE with memory.
+
+1.  Open VS Code and navigate to the **Roo Code** or **Cline** settings.
+2.  Find the **MCP Servers** section.
+3.  Click **Edit Settings (JSON)** or add a new server via the UI.
+4.  Use the same JSON configuration as shown for Claude Desktop above. Roo Code often shares the same `claude_desktop_config.json` or uses its own `mcp_settings.json` in `~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/`.
+
+---
+
+### 3. Goose (Desktop AI Agent)
+Goose provides a powerful CLI and UI for agentic workflows.
+
+1.  Open your Goose configuration (`~/.config/goose/config.yaml` or via the UI).
+2.  Add a new extension:
+```yaml
+extensions:
+  memory:
+    name: memory
+    command: python3
+    args:
+      - /Users/YOUR_USER/memory_MCP/src/memory_mcp/server.py
+    env:
+      PYTHONPATH: /Users/YOUR_USER/memory_MCP
+```
+
+---
+
+### 4. Cursor (AI Editor)
+Cursor allows you to add MCP servers in its settings.
+
+1.  Go to **Cursor Settings** -> **General** -> **Features**.
+2.  Find **MCP Servers** and click **+ Add New MCP Server**.
+3.  **Name:** `Memory`
+4.  **Type:** `command`
+5.  **Command:** `python3 /Users/YOUR_USER/memory_MCP/src/memory_mcp/server.py`
+
+---
 
 ### 💡 Tips for Pro Users
 To get the most out of your Cognitive Memory, try these prompts:
