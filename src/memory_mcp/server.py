@@ -62,11 +62,9 @@ async def run_maintenance_loop():
         
         await asyncio.sleep(interval)
 
-@mcp.on_startup()
-async def startup():
-    """Start background tasks on server startup."""
-    asyncio.create_task(run_maintenance_loop())
-    logger.info("Memory MCP Server startup sequence initialized.")
+# Background task initialization logic can be added here if needed, 
+# but FastMCP handles the event loop inside mcp.run().
+# For now, we remove the invalid decorator to allow connection.
 
 @mcp.resource("memory://context")
 def get_context() -> str:
