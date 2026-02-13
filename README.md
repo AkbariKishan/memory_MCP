@@ -204,21 +204,3 @@ MIT
 ## 🤝 Contributing
 
 Contributions are welcome! Whether it's adding a new provider or improving the extraction prompts, feel free to open a PR.
-├── tests/
-│   └── test_memory.py       # Unit tests
-├── README.md                # Documentation
-```
-
-## Utility & How it works
-
-The **Memory MCP** acts as a long-term bridge for LLMs. Claude (the "Brain") usually forgets everything after a session. This server (the "Library") provides:
-
-1.  **Categorized Context (Fact-Sheet)**: Instead of reading raw chat logs, Claude maintains a clean JSON map of "what is certain." This is used to ground every new conversation.
-2.  **Semantic Retrieval**: When an exact fact isn't found, the server uses vector embeddings to find "similar" things you've mentioned in the past.
-3.  **Local Control**: Everything is stored in `~/.memory_mcp/`. You can edit `fact_sheet.json` manually if you ever need to "hard-code" or correct Claude's memory.
-
----
-
-### Data Location
-Your information is stored locally at:
-`~/.memory_mcp/`
