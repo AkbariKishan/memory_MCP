@@ -115,7 +115,7 @@ To get the most out of your Cognitive Memory, try these prompts:
 
 ---
 
-## � Comparison: Memory MCP vs. Mem0
+## 📊 Comparison: Memory MCP vs. Mem0
 
 | Feature | Memory MCP (Cognitive) | Mem0 (Standard) |
 | :--- | :--- | :--- |
@@ -128,7 +128,18 @@ To get the most out of your Cognitive Memory, try these prompts:
 
 ---
 
-## �🔒 Security Best Practices
+## 📚 Research & Inspirations
+
+Memory MCP is built upon the foundational principles of state-of-the-art AI memory research. Key inspirations include:
+
+- **MemGPT**: Towards LLMs as Operating Systems. [Packer et al., 2023](https://arxiv.org/abs/2310.08560).
+- **Generative Agents**: Interactive Simulacra of Human Behavior. [Park et al., 2023](https://arxiv.org/abs/2304.03442).
+- **AIOS**: LLM Agent Operating System. [Mei et al., 2024](https://arxiv.org/abs/2403.16971).
+- **CogMem**: A Cognitive Memory Architecture for Sustained Multi-Turn Reasoning. [Zhang et al., 2025](https://arxiv.org/abs/2512.14118).
+
+---
+
+## 🔒 Security Best Practices
 
 1. **Local Everything**: All your memories are stored in `~/.memory_mcp/`. No data ever leaves your machine unless you use a cloud LLM provider (Google Gemini).
 2. **Key Management**: Use the `.env` file to keep your API keys out of your source code.
